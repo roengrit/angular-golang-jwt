@@ -56,6 +56,7 @@ func main() {
 	mux.HandleFunc("/account", account)
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
+    // not all user "http://localhost:4200"
 		AllowedHeaders: []string{"X-Requested-With", "Content-Type", "Authorization"},
 		AllowedMethods: []string{"GET", "HEAD", "POST", "PUT", "OPTIONS"},
 	})
