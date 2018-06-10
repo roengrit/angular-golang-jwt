@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/cors"
+
 	jwt "github.com/dgrijalva/jwt-go"
 )
 
@@ -21,8 +23,6 @@ const (
 
 // JWTData -
 type JWTData struct {
-	// Standard claims are the standard jwt claims from the IETF standard
-	// https://tools.ietf.org/html/rfc7519
 	jwt.StandardClaims
 	CustomClaims map[string]string `json:"custom,omitempty"`
 }
@@ -41,22 +41,27 @@ type User struct {
 }
 
 func main() {
+
+	// router := mux.NewRouter()
+	// router.HandleFunc("/login", login).Methods("POST")
+	// router.HandleFunc("/account", account).Methods("GET")
+	// headersOk := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"})
+	// originsOk := handlers.AllowedOrigins([]string{"*"})
+	// methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
+	// log.Fatal(http.ListenAndServe(":"+PORT, handlers.CORS(originsOk, headersOk, methodsOk)(router)))
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", hello)
 	mux.HandleFunc("/login", login)
 	mux.HandleFunc("/account", account)
-	mux.HandleFunc("/test", test)
-	//handler := cors.Default().Handler(mux)
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedHeaders: []string{"X-Requested-With", "Content-Type", "Authorization"},
+		AllowedMethods: []string{"GET", "HEAD", "POST", "PUT", "OPTIONS"},
+	})
+	handler := c.Handler(mux)
 	log.Println("Listening for connections on port: ", PORT)
-	log.Fatal(http.ListenAndServe(":"+PORT, mux))
-}
-
-func setupResponse(w *http.ResponseWriter, req *http.Request) {
-	(*w).Header().Set("Access-Control-Allow-Origin", "*")
-	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-	(*w).Header().Set("Content-Type", "application/json")
-	(*w).Header().Set("Accept", "application/json")
+	log.Fatal(http.ListenAndServe(":"+PORT, handler))
 }
 
 func hello(w http.ResponseWriter, r *http.Request) {
@@ -90,25 +95,7 @@ func formatRequest(r *http.Request) string {
 	return strings.Join(request, "\n")
 }
 
-func test(w http.ResponseWriter, r *http.Request) {
-	setupResponse(&w, r)
-	u := User{}
-	b, err := ioutil.ReadAll(r.Body)
-	defer r.Body.Close()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	err = json.Unmarshal(b, &u)
-	if err != nil {
-		http.Error(w, err.Error(), 600)
-		return
-	}
-}
-
 func login(w http.ResponseWriter, r *http.Request) {
-	setupResponse(&w, r)
-	fmt.Printf("--> %s\n\n", formatRequest(r))
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Println(err)
@@ -161,30 +148,23 @@ func account(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jwtToken := authArr[1]
-
 	claims, err := jwt.ParseWithClaims(jwtToken, &JWTData{}, func(token *jwt.Token) (interface{}, error) {
 		if jwt.SigningMethodHS256 != token.Method {
 			return nil, errors.New("Invalid signing algorithm")
 		}
 		return []byte(SECRET), nil
 	})
-
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "Request failed!", http.StatusUnauthorized)
 	}
-
 	data := claims.Claims.(*JWTData)
-
 	userID := data.CustomClaims["userid"]
-
-	// fetch some data based on the userID and then send that data back to the user in JSON format
 	jsonData, err := getAccountData(userID)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "Request failed!", http.StatusUnauthorized)
 	}
-
 	w.Write(jsonData)
 }
 
@@ -194,6 +174,5 @@ func getAccountData(userID string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return json, nil
 }

@@ -1,6 +1,8 @@
 import { Component, TemplateRef, Input, ElementRef } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-
+import { HttpClient ,HttpHeaders } from '@angular/common/http';
+import { Http, Headers, RequestOptions, ResponseContentType} from '@angular/http';
+import { Injectable } from '@angular/core'; 
+import { Router } from '@angular/router';
 interface Task {
   title: string,
   is_canceled: boolean
@@ -10,9 +12,13 @@ interface Task {
   selector: 'app-root',
   templateUrl: './app.component.html'
 })
+@Injectable()
 export class AppComponent {
   TOKEN_KEY = 'token';
-  constructor(private http: HttpClient) { }
+  constructor(
+    private http: HttpClient,
+    private httpHomw: Http,
+  ) { }
   tasks: Array<Task> = [
     {
       title: "Go home",
@@ -27,6 +33,10 @@ export class AppComponent {
       is_canceled: false
     }
   ];
+
+  get token() {
+    return localStorage.getItem(this.TOKEN_KEY);
+  }
 
   clearToDo() {
     let do_delete = confirm("Are you sure to delete all tasks?");
@@ -76,6 +86,20 @@ export class AppComponent {
     this.http.post('http://localhost:1337/login', JSON.stringify(params)).subscribe((res: any) => {
       localStorage.setItem(this.TOKEN_KEY, res.token);
       console.log(res.token)
+    },
+      error => {
+        alert("Error");
+      }
+    );
+  }
+
+  getAccount() {
+    let headers = new HttpHeaders();
+    headers = headers.set('Content-Type', 'application/json; charset=utf-8');
+    headers = headers.set('Authorization', 'Bearer ' + this.token)
+    console.log(this.token)
+    this.http.get('http://localhost:1337/account',{headers: headers}).subscribe((res: any) => {
+       console.log(res)
     },
       error => {
         alert("Error");
